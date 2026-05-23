@@ -67,9 +67,9 @@ final class StatusBarController: NSObject {
         filterItem.target = self
         menu.addItem(filterItem)
 
-        let testItem = NSMenuItem(title: "Test Display", action: #selector(testDisplay(_:)), keyEquivalent: "")
-        testItem.target = self
-        menu.addItem(testItem)
+        // let testItem = NSMenuItem(title: "Test Display", action: #selector(testDisplay(_:)), keyEquivalent: "")
+        // testItem.target = self
+        // menu.addItem(testItem)
 
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit ShowKeys", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
@@ -83,11 +83,13 @@ final class StatusBarController: NSObject {
         displayWindow?.cornerPosition = corner
     }
 
+    /*
     @objc private func testDisplay(_ sender: NSMenuItem) {
         displayWindow?.showKeystroke("⌘ S")
         displayWindow?.showKeystroke("⌃ ⌥ ⇧ ⌘ A")
         displayWindow?.showKeystroke("Space")
     }
+    */
 
     @objc private func toggleModifierKeysOnly(_ sender: NSMenuItem) {
         let new = !UserDefaults.standard.bool(forKey: "modifierKeysOnly")

@@ -80,7 +80,11 @@ private final class KeycapView: NSView {
                 symbolLabel.drawsBackground = false
                 symbolLabel.isBezeled = false
                 symbolLabel.alignment = .right
-                symbolLabel.frame = NSRect(x: w - 24, y: 26, width: 18, height: 18)
+                if symbol == "🌐" {
+                    symbolLabel.frame = NSRect(x: w - 28, y: 26, width: 22, height: 18)
+                } else {
+                    symbolLabel.frame = NSRect(x: w - 24, y: 26, width: 18, height: 18)
+                }
                 addSubview(symbolLabel)
             }
             
