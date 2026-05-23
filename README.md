@@ -11,13 +11,14 @@ ShowKeys is a lightweight, high-performance macOS menu bar utility that displays
 ## Features
 
 - **Skeuomorphic 3D Keycaps**: Keycaps are rendered to look like actual physical keyboard keys:
-  - **Modifier Keys** (Command, Option, Control, Shift) are styled as dark keys with symbols on the top-right and names on the bottom-left.
-  - **Standard Keys** are styled as light keys with bold centered text/symbols.
+  - **Modifier Keys** (Globe, Command, Option, Control, Shift) are styled as dark keys with symbols on the top-right and names on the bottom-left. Full support is included for the Apple Silicon Globe key (`🌐`).
+  - **Standard Keys** are styled as light keys with bold centered text or symbols.
+  - **Uniform Keycaps & Symbols**: All keycaps (modifiers and regular keys) use a uniform width of `72`. Wide keys (like Space, Enter, Escape, Tab, Delete, Caps Lock) are represented using clean Unicode symbols (`␣`, `↩`, `⎋`, `⇥`, `⌫`, `⇪`) for beautiful, symmetric grid alignment.
 - **Glassmorphic HUD Container**: Displays keys side-by-side using macOS `.hudWindow` materials for a sleek translucent glass backdrop.
 - **Accessibility Guided Setup**: Automatically detects if the required macOS Accessibility permission is granted. Displays an instructional window prompting you with a direct link to System Settings if trust is missing.
 - **Enable / Disable Toggle**: Toggle key displaying on or off anytime via the status bar menu. When disabled, the keystroke capture stops and any active keys on-screen are cleared immediately.
 - **Corner Selection**: Place the on-screen display in any of the four corners (Top-Left, Top-Right, Bottom-Left, Bottom-Right) of your visible screen.
-- **Modifier Filter**: Option to display keystrokes *only* when modifier keys are pressed.
+- **Stationary Modifier HUD**: Toggling "With Modifier Keys" enables a stationary Modifier HUD. It displays a persistent bar of modifiers (`🌐 ⌃ ⌥ ⇧ ⌘`) and a regular key slot in fixed screen locations. Keys light up when pressed, remain visible as long as held down, and the layout never shifts on-screen. The HUD fades out 2.2s after all keys are released.
 
 ---
 
