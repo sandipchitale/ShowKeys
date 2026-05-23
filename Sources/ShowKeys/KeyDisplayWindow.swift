@@ -19,6 +19,8 @@ private func parseKey(_ rawKey: String) -> KeyConfig {
         return KeyConfig(isModifier: true, displayName: "shift", symbol: "⇧", width: 72)
     case "⌘":
         return KeyConfig(isModifier: true, displayName: "command", symbol: "⌘", width: 72)
+    case "🌐":
+        return KeyConfig(isModifier: true, displayName: "globe", symbol: "🌐", width: 72)
     case "Space":
         return KeyConfig(isModifier: false, displayName: "space", symbol: nil, width: 110)
     case "Escape", "⎋":
@@ -251,7 +253,8 @@ final class KeyDisplayWindow: NSWindow {
                     let hasModifiers = flags.contains(.maskControl) ||
                                        flags.contains(.maskAlternate) ||
                                        flags.contains(.maskShift) ||
-                                       flags.contains(.maskCommand)
+                                       flags.contains(.maskCommand) ||
+                                       flags.contains(.maskSecondaryFn)
                     if !hasModifiers {
                         // All modifiers released, start fade-out timer
                         startFadeOutTimer(for: pill)
@@ -286,7 +289,8 @@ final class KeyDisplayWindow: NSWindow {
             let hasModifiers = flags.contains(.maskControl) ||
                                flags.contains(.maskAlternate) ||
                                flags.contains(.maskShift) ||
-                               flags.contains(.maskCommand)
+                               flags.contains(.maskCommand) ||
+                               flags.contains(.maskSecondaryFn)
 
             if !hasModifiers {
                 startFadeOutTimer(for: pill)

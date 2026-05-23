@@ -95,13 +95,15 @@ class KeyboardMonitor {
         let hasModifier = flags.contains(.maskControl)  ||
                           flags.contains(.maskAlternate) ||
                           flags.contains(.maskShift)    ||
-                          flags.contains(.maskCommand)
+                          flags.contains(.maskCommand)  ||
+                          flags.contains(.maskSecondaryFn)
 
         if UserDefaults.standard.bool(forKey: Self.modifierKeysOnlyKey) && !hasModifier {
             return ""
         }
 
         var parts: [String] = []
+        if flags.contains(.maskSecondaryFn){ parts.append("🌐") }
         if flags.contains(.maskControl)  { parts.append("⌃") }
         if flags.contains(.maskAlternate){ parts.append("⌥") }
         if flags.contains(.maskShift)    { parts.append("⇧") }
@@ -125,6 +127,7 @@ class KeyboardMonitor {
         let flagsToUse = modifierKeysOnly ? current : pressed
 
         var parts: [String] = []
+        if flagsToUse.contains(.maskSecondaryFn){ parts.append("🌐") }
         if flagsToUse.contains(.maskControl)  { parts.append("⌃") }
         if flagsToUse.contains(.maskAlternate){ parts.append("⌥") }
         if flagsToUse.contains(.maskShift)    { parts.append("⇧") }
