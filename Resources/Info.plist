@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+    "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>ShowKeys</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.sandipchitale.ShowKeys</string>
+    <key>CFBundleName</key>
+    <string>ShowKeys</string>
+    <key>CFBundleDisplayName</key>
+    <string>ShowKeys</string>
+    <key>CFBundleVersion</key>
+    <string>1.0</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <!-- Hide from Dock — menu bar only app -->
+    <key>LSUIElement</key>
+    <true/>
+    <!-- Required for CGEventTap -->
+    <key>NSAccessibilityUsageDescription</key>
+    <string>ShowKeys needs accessibility access to display your keystrokes on screen.</string>
+</dict>
+</plist>
