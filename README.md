@@ -11,7 +11,7 @@ ShowKeys is a lightweight, high-performance macOS menu bar utility that displays
 ## Features
 
 - **Skeuomorphic 3D Keycaps**: Keycaps are rendered to look like actual physical keyboard keys:
-  - **Modifier Keys** (Globe, Command, Option, Control, Shift) are styled as dark keys with symbols on the top-right and names on the bottom-left. Full support is included for the Apple Silicon Globe key (`🌐`).
+  - **Modifier Keys** (Fn / Globe, Command, Option, Control, Shift) are styled as dark keys with symbols on the top-right and names on the bottom-left. Full support is included for the Apple Silicon Globe key (`🌐`, labeled as `fn`).
   - **Standard Keys** are styled as light keys with bold centered text or symbols.
   - **Uniform Keycaps & Symbols**: All keycaps (modifiers and regular keys) use a uniform width of `72`. Wide keys (like Space, Enter, Escape, Tab, Delete, Caps Lock) are represented using clean Unicode symbols (`␣`, `↩`, `⎋`, `⇥`, `⌫`, `⇪`) for beautiful, symmetric grid alignment.
 - **Glassmorphic HUD Container**: Displays keys side-by-side using macOS `.hudWindow` materials for a sleek translucent glass backdrop.
