@@ -262,7 +262,11 @@ private final class ModifierHUDView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func updateState(flags: CGEventFlags, regularKeyText: String?) {
-        globeKey.alphaValue = flags.contains(.maskSecondaryFn) ? 1.0 : 0.2
+        let isFunctionKey = regularKeyText?.hasPrefix("F") == true &&
+                            regularKeyText?.count ?? 0 > 1 &&
+                            regularKeyText?.dropFirst().allSatisfy({ $0.isNumber }) == true
+
+        globeKey.alphaValue = (flags.contains(.maskSecondaryFn) && !isFunctionKey) ? 1.0 : 0.2
         controlKey.alphaValue = flags.contains(.maskControl) ? 1.0 : 0.2
         optionKey.alphaValue = flags.contains(.maskAlternate) ? 1.0 : 0.2
         shiftKey.alphaValue = flags.contains(.maskShift) ? 1.0 : 0.2
