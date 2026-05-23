@@ -22,28 +22,28 @@ private func parseKey(_ rawKey: String) -> KeyConfig {
     case "🌐":
         return KeyConfig(isModifier: true, displayName: "globe", symbol: "🌐", width: 72)
     case "Space":
-        return KeyConfig(isModifier: false, displayName: "space", symbol: nil, width: 110)
+        return KeyConfig(isModifier: false, displayName: "␣", symbol: nil, width: 72)
     case "Escape", "⎋":
-        return KeyConfig(isModifier: false, displayName: "esc", symbol: nil, width: 56)
+        return KeyConfig(isModifier: false, displayName: "⎋", symbol: nil, width: 72)
     case "↩":
-        return KeyConfig(isModifier: false, displayName: "return", symbol: nil, width: 72)
+        return KeyConfig(isModifier: false, displayName: "↩", symbol: nil, width: 72)
     case "⇥":
-        return KeyConfig(isModifier: false, displayName: "tab", symbol: nil, width: 64)
+        return KeyConfig(isModifier: false, displayName: "⇥", symbol: nil, width: 72)
     case "⌫":
-        return KeyConfig(isModifier: false, displayName: "delete", symbol: nil, width: 68)
+        return KeyConfig(isModifier: false, displayName: "⌫", symbol: nil, width: 72)
     case "⇪":
-        return KeyConfig(isModifier: false, displayName: "caps lock", symbol: nil, width: 76)
+        return KeyConfig(isModifier: false, displayName: "⇪", symbol: nil, width: 72)
     default:
         let label = rawKey
-        let size = (label as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: 18, weight: .bold)])
-        let w = max(46, size.width + 24)
-        return KeyConfig(isModifier: false, displayName: label, symbol: nil, width: w)
+        return KeyConfig(isModifier: false, displayName: label, symbol: nil, width: 72)
     }
 }
 
 // MARK: - 3D Keycap View
 
 private final class KeycapView: NSView {
+    private var nameLabel: NSTextField?
+
     init(config: KeyConfig) {
         let keyH: CGFloat = 48
         let w = config.width
@@ -119,10 +119,24 @@ private final class KeycapView: NSView {
             let labelY = (45 - size.height) / 2 + 3
             nameLabel.frame = NSRect(x: 0, y: labelY - 0.5, width: w, height: size.height)
             addSubview(nameLabel)
+            self.nameLabel = nameLabel
         }
     }
     
     required init?(coder: NSCoder) { fatalError() }
+
+    func updateText(_ text: String) {
+        guard let nameLabel = nameLabel else { return }
+        nameLabel.stringValue = text
+        
+        let fontSize: CGFloat = text.count > 1 ? 12 : 18
+        let fontWeight: NSFont.Weight = text.count > 1 ? .medium : .bold
+        nameLabel.font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
+        
+        let size = (text as NSString).size(withAttributes: [.font: nameLabel.font!])
+        let labelY = (45 - size.height) / 2 + 3
+        nameLabel.frame = NSRect(x: 0, y: labelY - 0.5, width: bounds.width, height: size.height)
+    }
 }
 
 // MARK: - Pill View (Enclosing Container)
@@ -179,18 +193,99 @@ private final class KeystrokePill: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
+// MARK: - Modifier HUD View
+
+private final class ModifierHUDView: NSView {
+    private let globeKey: KeycapView
+    private let controlKey: KeycapView
+    private let optionKey: KeycapView
+    private let shiftKey: KeycapView
+    private let commandKey: KeycapView
+    private let regularKeySlot: KeycapView
+
+    private let keyGap: CGFloat = 8
+    private let hPad: CGFloat = 10
+    private let vPad: CGFloat = 8
+    private let keyH: CGFloat = 48
+    private let effectView: NSVisualEffectView
+
+    init() {
+        globeKey = KeycapView(config: parseKey("🌐"))
+        controlKey = KeycapView(config: parseKey("⌃"))
+        optionKey = KeycapView(config: parseKey("⌥"))
+        shiftKey = KeycapView(config: parseKey("⇧"))
+        commandKey = KeycapView(config: parseKey("⌘"))
+        
+        let regularConfig = KeyConfig(isModifier: false, displayName: "", symbol: nil, width: 72)
+        regularKeySlot = KeycapView(config: regularConfig)
+
+        let totalW: CGFloat = 6 * 72 + 5 * keyGap + hPad * 2 // 492
+        let totalH: CGFloat = keyH + vPad * 2 // 64
+
+        effectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: totalW, height: totalH))
+
+        super.init(frame: NSRect(x: 0, y: 0, width: totalW, height: totalH))
+
+        wantsLayer = true
+        layer?.cornerRadius = 14
+        layer?.backgroundColor = NSColor(calibratedWhite: 0.12, alpha: 0.45).cgColor
+        layer?.borderColor = NSColor(calibratedWhite: 0.25, alpha: 0.35).cgColor
+        layer?.borderWidth = 1.0
+
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.35
+        layer?.shadowRadius = 8
+        layer?.shadowOffset = CGSize(width: 0, height: -3)
+
+        effectView.material = .hudWindow
+        effectView.blendingMode = .withinWindow
+        effectView.state = .active
+        effectView.autoresizingMask = [.width, .height]
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = 14
+        addSubview(effectView)
+
+        let keys = [globeKey, controlKey, optionKey, shiftKey, commandKey, regularKeySlot]
+        var currentX = hPad
+        for keycap in keys {
+            keycap.frame.origin = NSPoint(x: currentX, y: vPad)
+            keycap.alphaValue = 0.2
+            addSubview(keycap)
+            currentX += 72 + keyGap
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    func updateState(flags: CGEventFlags, regularKeyText: String?) {
+        globeKey.alphaValue = flags.contains(.maskSecondaryFn) ? 1.0 : 0.2
+        controlKey.alphaValue = flags.contains(.maskControl) ? 1.0 : 0.2
+        optionKey.alphaValue = flags.contains(.maskAlternate) ? 1.0 : 0.2
+        shiftKey.alphaValue = flags.contains(.maskShift) ? 1.0 : 0.2
+        commandKey.alphaValue = flags.contains(.maskCommand) ? 1.0 : 0.2
+
+        if let regularKeyText = regularKeyText, !regularKeyText.isEmpty {
+            regularKeySlot.updateText(regularKeyText)
+            regularKeySlot.alphaValue = 1.0
+        } else {
+            regularKeySlot.updateText("")
+            regularKeySlot.alphaValue = 0.2
+        }
+    }
+}
+
 // MARK: - Display window
 
 final class KeyDisplayWindow: NSWindow {
-    private static let windowW: CGFloat = 500
+    private static let windowW: CGFloat = 550
     private static let windowH: CGFloat = 380
     private static let margin: CGFloat  = 20
     private static let pillGap: CGFloat =  8
     private static let maxPills         =  5
     private static let displayDuration  = 2.2
 
-    private var pills: [KeystrokePill] = []
-    private var activeModifierPill: KeystrokePill?
+    private var pills: [NSView] = []
+    private var activeHUDView: ModifierHUDView?
     private var activeModifierTimer: Timer?
 
     var cornerPosition: CornerPosition {
@@ -232,7 +327,8 @@ final class KeyDisplayWindow: NSWindow {
     func clearKeystrokes() {
         activeModifierTimer?.invalidate()
         activeModifierTimer = nil
-        activeModifierPill = nil
+        activeHUDView?.removeFromSuperview()
+        activeHUDView = nil
         for pill in pills {
             pill.removeFromSuperview()
         }
@@ -243,48 +339,15 @@ final class KeyDisplayWindow: NSWindow {
         let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
 
         if modifierKeysOnly {
-            // Cancel any pending fade-out timer for the active modifier pill
+            // Cancel any pending fade-out timer for the active HUD
             activeModifierTimer?.invalidate()
             activeModifierTimer = nil
 
-            // If text is empty, it means we got a flagsChanged release event
-            if text.isEmpty {
-                if let pill = activeModifierPill {
-                    let hasModifiers = flags.contains(.maskControl) ||
-                                       flags.contains(.maskAlternate) ||
-                                       flags.contains(.maskShift) ||
-                                       flags.contains(.maskCommand) ||
-                                       flags.contains(.maskSecondaryFn)
-                    if !hasModifiers {
-                        // All modifiers released, start fade-out timer
-                        startFadeOutTimer(for: pill)
-                    }
-                }
-                return
-            }
-
-            // Remove the old active modifier pill immediately
-            if let oldPill = activeModifierPill {
-                oldPill.removeFromSuperview()
-                pills.removeAll { $0 === oldPill }
-                activeModifierPill = nil
-            }
-
-            // Clear any other pills to ensure we only have one fixed pill
-            clearKeystrokes()
-
-            let pill = KeystrokePill(text: text)
-            pill.alphaValue = 0
-            contentView?.addSubview(pill)
-            pills.append(pill)
-            activeModifierPill = pill
-
-            layoutPills(animated: false)
-
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.12
-                pill.animator().alphaValue = 1.0
-            }
+            // Extract regular key name from text (if any)
+            let parts = text.components(separatedBy: " ").filter { !$0.isEmpty }
+            let modifiersList = ["🌐", "⌃", "⌥", "⇧", "⌘"]
+            let regularKeys = parts.filter { !modifiersList.contains($0) }
+            let regularKeyText = regularKeys.first
 
             let hasModifiers = flags.contains(.maskControl) ||
                                flags.contains(.maskAlternate) ||
@@ -292,8 +355,45 @@ final class KeyDisplayWindow: NSWindow {
                                flags.contains(.maskCommand) ||
                                flags.contains(.maskSecondaryFn)
 
+            if text.isEmpty {
+                if let hud = activeHUDView {
+                    hud.updateState(flags: flags, regularKeyText: nil)
+                    layoutPills(animated: true)
+                    if !hasModifiers {
+                        startFadeOutTimer(for: hud)
+                    }
+                }
+                return
+            }
+
+            let isNew = (activeHUDView == nil)
+            let hud: ModifierHUDView
+            if let existingHUD = activeHUDView {
+                hud = existingHUD
+                if hud.alphaValue < 1.0 {
+                    hud.alphaValue = 1.0
+                }
+            } else {
+                clearKeystrokes()
+                hud = ModifierHUDView()
+                hud.alphaValue = 0
+                contentView?.addSubview(hud)
+                pills.append(hud)
+                activeHUDView = hud
+            }
+
+            hud.updateState(flags: flags, regularKeyText: regularKeyText)
+            layoutPills(animated: !isNew)
+
+            if hud.alphaValue == 0 {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.12
+                    hud.animator().alphaValue = 1.0
+                }
+            }
+
             if !hasModifiers {
-                startFadeOutTimer(for: pill)
+                startFadeOutTimer(for: hud)
             }
         } else {
             // Default stacking/fading behavior
@@ -333,7 +433,7 @@ final class KeyDisplayWindow: NSWindow {
         }
     }
 
-    private func startFadeOutTimer(for pill: KeystrokePill) {
+    private func startFadeOutTimer(for pill: NSView) {
         let displayTime = Self.displayDuration
         activeModifierTimer = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self, weak pill] _ in
             guard let self, let pill, self.pills.contains(where: { $0 === pill }) else { return }
@@ -345,8 +445,8 @@ final class KeyDisplayWindow: NSWindow {
                 self.pills.removeAll { $0 === pill }
                 pill.removeFromSuperview()
                 self.layoutPills(animated: true)
-                if self.activeModifierPill === pill {
-                    self.activeModifierPill = nil
+                if self.activeHUDView === pill {
+                    self.activeHUDView = nil
                 }
             }
         }
@@ -400,7 +500,7 @@ final class KeyDisplayWindow: NSWindow {
         }
     }
 
-    private func xOrigin(for pill: KeystrokePill) -> CGFloat {
+    private func xOrigin(for pill: NSView) -> CGFloat {
         let m: CGFloat = 10
         if cornerPosition.isRight {
             return Self.windowW - pill.frame.width - m
