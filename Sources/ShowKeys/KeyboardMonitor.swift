@@ -13,7 +13,7 @@ private func tapCallback(
 }
 
 class KeyboardMonitor {
-    var onKeyEvent: ((String) -> Void)?
+    var onKeyEvent: ((String, CGEventFlags) -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -71,17 +71,18 @@ class KeyboardMonitor {
 
     fileprivate func handleCGEvent(type: CGEventType, event: CGEvent) {
         let text: String
+        let flags = event.flags
         switch type {
         case .keyDown:
             text = buildKeyDownText(event: event)
+            guard !text.isEmpty else { return }
         case .flagsChanged:
             text = buildFlagsChangedText(event: event)
         default:
             return
         }
-        guard !text.isEmpty else { return }
         DispatchQueue.main.async { [weak self] in
-            self?.onKeyEvent?(text)
+            self?.onKeyEvent?(text, flags)
         }
     }
 
@@ -113,17 +114,21 @@ class KeyboardMonitor {
         return parts.joined(separator: " ")
     }
 
-    // Show newly-pressed modifier keys (ignore releases).
+    // Show active modifier keys when "modifierKeysOnly" is enabled,
+    // or show newly-pressed modifier keys (ignoring releases) in default mode.
     private func buildFlagsChangedText(event: CGEvent) -> String {
         let current = event.flags
         let pressed = CGEventFlags(rawValue: current.rawValue & ~previousFlags.rawValue)
         previousFlags = current
 
+        let modifierKeysOnly = UserDefaults.standard.bool(forKey: Self.modifierKeysOnlyKey)
+        let flagsToUse = modifierKeysOnly ? current : pressed
+
         var parts: [String] = []
-        if pressed.contains(.maskControl)  { parts.append("⌃") }
-        if pressed.contains(.maskAlternate){ parts.append("⌥") }
-        if pressed.contains(.maskShift)    { parts.append("⇧") }
-        if pressed.contains(.maskCommand)  { parts.append("⌘") }
+        if flagsToUse.contains(.maskControl)  { parts.append("⌃") }
+        if flagsToUse.contains(.maskAlternate){ parts.append("⌥") }
+        if flagsToUse.contains(.maskShift)    { parts.append("⇧") }
+        if flagsToUse.contains(.maskCommand)  { parts.append("⌘") }
 
         return parts.joined(separator: " ")
     }

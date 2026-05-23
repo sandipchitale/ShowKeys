@@ -92,6 +92,7 @@ final class StatusBarController: NSObject {
     @objc private func toggleModifierKeysOnly(_ sender: NSMenuItem) {
         let new = !UserDefaults.standard.bool(forKey: "modifierKeysOnly")
         UserDefaults.standard.set(new, forKey: "modifierKeysOnly")
+        displayWindow?.clearKeystrokes()
     }
 
     @objc private func toggleEnabled(_ sender: NSMenuItem) {

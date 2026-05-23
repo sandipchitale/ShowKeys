@@ -26,8 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusBarController = StatusBarController(displayWindow: keyDisplayWindow)
 
         keyboardMonitor = KeyboardMonitor()
-        keyboardMonitor.onKeyEvent = { [weak self] text in
-            self?.keyDisplayWindow.showKeystroke(text)
+        keyboardMonitor.onKeyEvent = { [weak self] text, flags in
+            self?.keyDisplayWindow.showKeystroke(text, flags: flags)
         }
 
         if isEnabled {

@@ -188,6 +188,8 @@ final class KeyDisplayWindow: NSWindow {
     private static let displayDuration  = 2.2
 
     private var pills: [KeystrokePill] = []
+    private var activeModifierPill: KeystrokePill?
+    private var activeModifierTimer: Timer?
 
     var cornerPosition: CornerPosition {
         get {
@@ -226,33 +228,110 @@ final class KeyDisplayWindow: NSWindow {
     // MARK: - Public
 
     func clearKeystrokes() {
+        activeModifierTimer?.invalidate()
+        activeModifierTimer = nil
+        activeModifierPill = nil
         for pill in pills {
             pill.removeFromSuperview()
         }
         pills.removeAll()
     }
 
-    func showKeystroke(_ text: String) {
-        // Evict oldest pill if at capacity
-        if pills.count >= Self.maxPills {
-            let evicted = pills.removeFirst()
-            evicted.removeFromSuperview()
+    func showKeystroke(_ text: String, flags: CGEventFlags = []) {
+        let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
+
+        if modifierKeysOnly {
+            // Cancel any pending fade-out timer for the active modifier pill
+            activeModifierTimer?.invalidate()
+            activeModifierTimer = nil
+
+            // If text is empty, it means we got a flagsChanged release event
+            if text.isEmpty {
+                if let pill = activeModifierPill {
+                    let hasModifiers = flags.contains(.maskControl) ||
+                                       flags.contains(.maskAlternate) ||
+                                       flags.contains(.maskShift) ||
+                                       flags.contains(.maskCommand)
+                    if !hasModifiers {
+                        // All modifiers released, start fade-out timer
+                        startFadeOutTimer(for: pill)
+                    }
+                }
+                return
+            }
+
+            // Remove the old active modifier pill immediately
+            if let oldPill = activeModifierPill {
+                oldPill.removeFromSuperview()
+                pills.removeAll { $0 === oldPill }
+                activeModifierPill = nil
+            }
+
+            // Clear any other pills to ensure we only have one fixed pill
+            clearKeystrokes()
+
+            let pill = KeystrokePill(text: text)
+            pill.alphaValue = 0
+            contentView?.addSubview(pill)
+            pills.append(pill)
+            activeModifierPill = pill
+
+            layoutPills(animated: false)
+
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                pill.animator().alphaValue = 1.0
+            }
+
+            let hasModifiers = flags.contains(.maskControl) ||
+                               flags.contains(.maskAlternate) ||
+                               flags.contains(.maskShift) ||
+                               flags.contains(.maskCommand)
+
+            if !hasModifiers {
+                startFadeOutTimer(for: pill)
+            }
+        } else {
+            // Default stacking/fading behavior
+            guard !text.isEmpty else { return }
+
+            // Evict oldest pill if at capacity
+            if pills.count >= Self.maxPills {
+                let evicted = pills.removeFirst()
+                evicted.removeFromSuperview()
+            }
+
+            let pill = KeystrokePill(text: text)
+            pill.alphaValue = 0
+            contentView?.addSubview(pill)
+            pills.append(pill)
+
+            layoutPills(animated: false)
+
+            NSAnimationContext.runAnimationGroup { ctx in
+                ctx.duration = 0.12
+                pill.animator().alphaValue = 1.0
+            }
+
+            let displayTime = Self.displayDuration
+            DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) { [weak self, weak pill] in
+                guard let self, let pill, self.pills.contains(where: { $0 === pill }) else { return }
+                NSAnimationContext.runAnimationGroup({ ctx in
+                    ctx.duration = 0.45
+                    pill.animator().alphaValue = 0
+                }) { [weak self, weak pill] in
+                    guard let self, let pill else { return }
+                    self.pills.removeAll { $0 === pill }
+                    pill.removeFromSuperview()
+                    self.layoutPills(animated: true)
+                }
+            }
         }
+    }
 
-        let pill = KeystrokePill(text: text)
-        pill.alphaValue = 0
-        contentView?.addSubview(pill)
-        pills.append(pill)
-
-        layoutPills(animated: false)
-
-        NSAnimationContext.runAnimationGroup { ctx in
-            ctx.duration = 0.12
-            pill.animator().alphaValue = 1.0
-        }
-
+    private func startFadeOutTimer(for pill: KeystrokePill) {
         let displayTime = Self.displayDuration
-        DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) { [weak self, weak pill] in
+        activeModifierTimer = Timer.scheduledTimer(withTimeInterval: displayTime, repeats: false) { [weak self, weak pill] _ in
             guard let self, let pill, self.pills.contains(where: { $0 === pill }) else { return }
             NSAnimationContext.runAnimationGroup({ ctx in
                 ctx.duration = 0.45
@@ -262,6 +341,9 @@ final class KeyDisplayWindow: NSWindow {
                 self.pills.removeAll { $0 === pill }
                 pill.removeFromSuperview()
                 self.layoutPills(animated: true)
+                if self.activeModifierPill === pill {
+                    self.activeModifierPill = nil
+                }
             }
         }
     }
