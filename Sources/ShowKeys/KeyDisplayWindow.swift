@@ -20,7 +20,7 @@ private func parseKey(_ rawKey: String) -> KeyConfig {
     case "⌘":
         return KeyConfig(isModifier: true, displayName: "command", symbol: "⌘", width: 72)
     case "🌐":
-        return KeyConfig(isModifier: true, displayName: "globe", symbol: "🌐", width: 72)
+        return KeyConfig(isModifier: true, displayName: "fn", symbol: "🌐", width: 72)
     case "Space":
         return KeyConfig(isModifier: false, displayName: "␣", symbol: nil, width: 72)
     case "Escape", "⎋":
