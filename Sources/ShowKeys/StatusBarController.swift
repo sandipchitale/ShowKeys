@@ -67,6 +67,14 @@ final class StatusBarController: NSObject {
         filterItem.target = self
         menu.addItem(filterItem)
 
+        let stickyItem = NSMenuItem(
+            title: "        Sticky",
+            action: #selector(toggleSticky(_:)),
+            keyEquivalent: ""
+        )
+        stickyItem.target = self
+        menu.addItem(stickyItem)
+
         // let testItem = NSMenuItem(title: "Test Display", action: #selector(testDisplay(_:)), keyEquivalent: "")
         // testItem.target = self
         // menu.addItem(testItem)
@@ -97,6 +105,12 @@ final class StatusBarController: NSObject {
         displayWindow?.clearKeystrokes()
     }
 
+    @objc private func toggleSticky(_ sender: NSMenuItem) {
+        let new = !UserDefaults.standard.bool(forKey: "sticky")
+        UserDefaults.standard.set(new, forKey: "sticky")
+        displayWindow?.clearKeystrokes()
+    }
+
     @objc private func toggleEnabled(_ sender: NSMenuItem) {
         if let delegate = NSApplication.shared.delegate as? AppDelegate {
             delegate.isEnabled = !delegate.isEnabled
@@ -107,6 +121,13 @@ final class StatusBarController: NSObject {
         if let delegate = NSApplication.shared.delegate as? AppDelegate {
             delegate.showAccessibilityPromptWindow()
         }
+    }
+
+    @objc func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(toggleSticky(_:)) {
+            return UserDefaults.standard.bool(forKey: "modifierKeysOnly")
+        }
+        return true
     }
 }
 
@@ -150,6 +171,12 @@ extension StatusBarController: NSMenuDelegate {
         // Refresh filter checkmark
         if let filterItem = menu.item(withTitle: "With Modifier Keys") {
             filterItem.state = UserDefaults.standard.bool(forKey: "modifierKeysOnly") ? .on : .off
+        }
+        // Refresh sticky checkmark and enabled state
+        if let stickyItem = menu.item(withTitle: "        Sticky") {
+            let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
+            stickyItem.isEnabled = modifierKeysOnly
+            stickyItem.state = UserDefaults.standard.bool(forKey: "sticky") ? .on : .off
         }
     }
 }

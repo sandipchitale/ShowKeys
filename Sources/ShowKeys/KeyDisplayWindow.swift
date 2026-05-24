@@ -223,8 +223,8 @@ private final class ModifierHUDView: NSView {
         let regularConfig = KeyConfig(isModifier: false, displayName: "", symbol: nil, width: 72)
         regularKeySlot = KeycapView(config: regularConfig)
 
-        let totalW: CGFloat = 6 * 72 + 5 * keyGap + hPad * 2 // 492
-        let totalH: CGFloat = keyH + vPad * 2 // 64
+        let totalW: CGFloat = 4 * 72 + 3 * keyGap + hPad * 2 // 332
+        let totalH: CGFloat = 2 * keyH + keyGap + vPad * 2 // 120
 
         effectView = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: totalW, height: totalH))
 
@@ -249,13 +249,20 @@ private final class ModifierHUDView: NSView {
         effectView.layer?.cornerRadius = 14
         addSubview(effectView)
 
-        let keys = [globeKey, controlKey, optionKey, shiftKey, commandKey, regularKeySlot]
-        var currentX = hPad
+        // Bottom row: control, globe, option, command
+        controlKey.frame.origin = NSPoint(x: hPad, y: vPad)
+        globeKey.frame.origin = NSPoint(x: hPad + 72 + keyGap, y: vPad)
+        optionKey.frame.origin = NSPoint(x: hPad + 2 * (72 + keyGap), y: vPad)
+        commandKey.frame.origin = NSPoint(x: hPad + 3 * (72 + keyGap), y: vPad)
+
+        // Top row: shift, regular key slot
+        shiftKey.frame.origin = NSPoint(x: hPad, y: vPad + keyH + keyGap)
+        regularKeySlot.frame.origin = NSPoint(x: hPad + 3 * (72 + keyGap), y: vPad + keyH + keyGap)
+
+        let keys = [controlKey, globeKey, optionKey, commandKey, shiftKey, regularKeySlot]
         for keycap in keys {
-            keycap.frame.origin = NSPoint(x: currentX, y: vPad)
             keycap.alphaValue = 0.2
             addSubview(keycap)
-            currentX += 72 + keyGap
         }
     }
 
@@ -367,7 +374,7 @@ final class KeyDisplayWindow: NSWindow {
                 if let hud = activeHUDView {
                     hud.updateState(flags: flags, regularKeyText: nil)
                     layoutPills(animated: true)
-                    if !hasModifiers {
+                    if !hasModifiers && !UserDefaults.standard.bool(forKey: "sticky") {
                         startFadeOutTimer(for: hud)
                     }
                 }
@@ -400,7 +407,7 @@ final class KeyDisplayWindow: NSWindow {
                 }
             }
 
-            if !hasModifiers {
+            if !hasModifiers && !UserDefaults.standard.bool(forKey: "sticky") {
                 startFadeOutTimer(for: hud)
             }
         } else {

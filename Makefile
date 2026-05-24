@@ -17,6 +17,7 @@ bundle: build
 	@mkdir -p $(APP_BUNDLE)/Contents/Resources
 	@cp $(BINARY) $(APP_BUNDLE)/Contents/MacOS/$(APP_NAME)
 	@cp Resources/Info.plist $(APP_BUNDLE)/Contents/Info.plist
+	@cp Resources/AppIcon.icns $(APP_BUNDLE)/Contents/Resources/AppIcon.icns
 	@codesign --force --deep --sign - $(APP_BUNDLE)
 	@echo "✓ $(APP_BUNDLE) created and signed"
 	@echo ""

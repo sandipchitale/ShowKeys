@@ -107,8 +107,8 @@ class KeyboardMonitor {
         let isFunctionKey = keyName.hasPrefix("F") && keyName.count > 1 && keyName.dropFirst().allSatisfy({ $0.isNumber })
 
         var parts: [String] = []
-        if flags.contains(.maskSecondaryFn) && !isFunctionKey { parts.append("🌐") }
         if flags.contains(.maskControl)  { parts.append("⌃") }
+        if flags.contains(.maskSecondaryFn) && !isFunctionKey { parts.append("🌐") }
         if flags.contains(.maskAlternate){ parts.append("⌥") }
         if flags.contains(.maskShift)    { parts.append("⇧") }
         if flags.contains(.maskCommand)  { parts.append("⌘") }
@@ -129,8 +129,8 @@ class KeyboardMonitor {
         let flagsToUse = modifierKeysOnly ? current : pressed
 
         var parts: [String] = []
-        if flagsToUse.contains(.maskSecondaryFn){ parts.append("🌐") }
         if flagsToUse.contains(.maskControl)  { parts.append("⌃") }
+        if flagsToUse.contains(.maskSecondaryFn){ parts.append("🌐") }
         if flagsToUse.contains(.maskAlternate){ parts.append("⌥") }
         if flagsToUse.contains(.maskShift)    { parts.append("⇧") }
         if flagsToUse.contains(.maskCommand)  { parts.append("⌘") }
