@@ -13,7 +13,7 @@ private func tapCallback(
 }
 
 class KeyboardMonitor {
-    var onKeyEvent: ((String, CGEventFlags) -> Void)?
+    var onKeyEvent: ((String, CGEventFlags, Bool, Int) -> Void)?
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -31,8 +31,12 @@ class KeyboardMonitor {
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.leftMouseDown.rawValue) |
+            (1 << CGEventType.leftMouseUp.rawValue) |
             (1 << CGEventType.rightMouseDown.rawValue) |
-            (1 << CGEventType.otherMouseDown.rawValue)
+            (1 << CGEventType.rightMouseUp.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseUp.rawValue) |
+            (1 << CGEventType.scrollWheel.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -79,21 +83,56 @@ class KeyboardMonitor {
         case .keyDown:
             text = buildKeyDownText(event: event)
             guard !text.isEmpty else { return }
+            DispatchQueue.main.async { [weak self] in
+                self?.onKeyEvent?(text, flags, true, 1)
+            }
         case .flagsChanged:
             text = buildFlagsChangedText(event: event)
+            DispatchQueue.main.async { [weak self] in
+                self?.onKeyEvent?(text, flags, true, 1)
+            }
         case .leftMouseDown, .rightMouseDown, .otherMouseDown:
             guard UserDefaults.standard.bool(forKey: "showMouseClicks") else { return }
-            text = buildMouseDownText(type: type, event: event)
+            text = buildMouseText(type: type, event: event)
             guard !text.isEmpty else { return }
+            let clickCount = Int(event.getIntegerValueField(.mouseEventClickState))
+            DispatchQueue.main.async { [weak self] in
+                self?.onKeyEvent?(text, flags, true, clickCount)
+            }
+        case .leftMouseUp, .rightMouseUp, .otherMouseUp:
+            guard UserDefaults.standard.bool(forKey: "showMouseClicks") else { return }
+            text = buildMouseText(type: type, event: event)
+            guard !text.isEmpty else { return }
+            let clickCount = Int(event.getIntegerValueField(.mouseEventClickState))
+            DispatchQueue.main.async { [weak self] in
+                self?.onKeyEvent?(text, flags, false, clickCount)
+            }
+        case .scrollWheel:
+            guard UserDefaults.standard.bool(forKey: "showMouseClicks") else { return }
+            if let nsEvent = NSEvent(cgEvent: event), nsEvent.subtype == .touch {
+                if nsEvent.phase == .began {
+                    let deltaY = nsEvent.scrollingDeltaY
+                    let deltaX = nsEvent.scrollingDeltaX
+                    if deltaY != 0 || deltaX != 0 {
+                        let direction: String
+                        if abs(deltaY) > abs(deltaX) {
+                            direction = deltaY > 0 ? "SwipeUp" : "SwipeDown"
+                        } else {
+                            direction = deltaX > 0 ? "SwipeLeft" : "SwipeRight"
+                        }
+                        let text = "Trackpad\u{00A0}\(direction)"
+                        DispatchQueue.main.async { [weak self] in
+                            self?.onKeyEvent?(text, flags, true, 1)
+                        }
+                    }
+                }
+            }
         default:
             return
         }
-        DispatchQueue.main.async { [weak self] in
-            self?.onKeyEvent?(text, flags)
-        }
     }
 
-    private func buildMouseDownText(type: CGEventType, event: CGEvent) -> String {
+    private func buildMouseText(type: CGEventType, event: CGEvent) -> String {
         let flags = event.flags
         let hasModifier = flags.contains(.maskControl)  ||
                           flags.contains(.maskAlternate) ||
@@ -121,11 +160,11 @@ class KeyboardMonitor {
 
         let buttonName: String
         switch type {
-        case .leftMouseDown:
+        case .leftMouseDown, .leftMouseUp:
             buttonName = "Left"
-        case .rightMouseDown:
+        case .rightMouseDown, .rightMouseUp:
             buttonName = "Right"
-        case .otherMouseDown:
+        case .otherMouseDown, .otherMouseUp:
             let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
             if buttonNumber == 2 {
                 buttonName = "Middle"

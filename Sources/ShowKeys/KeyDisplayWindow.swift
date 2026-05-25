@@ -113,10 +113,14 @@ func colorKey(for displayName: String) -> String {
 private final class MouseGraphicView: NSView {
     private let clickedButton: String
     private let color: NSColor
+    private let isPressed: Bool
+    private let clickCount: Int
     
-    init(clickedButton: String, color: NSColor) {
+    init(clickedButton: String, color: NSColor, isPressed: Bool, clickCount: Int) {
         self.clickedButton = clickedButton
         self.color = color
+        self.isPressed = isPressed
+        self.clickCount = clickCount
         super.init(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
     }
     
@@ -128,8 +132,8 @@ private final class MouseGraphicView: NSView {
         let strokeColor = color
         let fillColor = color.withAlphaComponent(0.85)
         
-        // Mouse body bounds: 20x28, centered in 32x32 -> x: 6, y: 2
-        let mouseRect = NSRect(x: 6, y: 2, width: 20, height: 28)
+        // Mouse body bounds: 20x24, centered in 32x32 but shifted up slightly -> x: 6, y: 7
+        let mouseRect = NSRect(x: 6, y: 7, width: 20, height: 24)
         let path = NSBezierPath(roundedRect: mouseRect, xRadius: 10, yRadius: 10)
         
         strokeColor.setStroke()
@@ -137,50 +141,77 @@ private final class MouseGraphicView: NSView {
         path.stroke()
         
         // Draw division lines:
-        // Horizontal line separating top buttons from body (y = 16)
+        // Horizontal line separating top buttons from body (y = 19)
         let hLine = NSBezierPath()
-        hLine.move(to: NSPoint(x: 6, y: 16))
-        hLine.line(to: NSPoint(x: 26, y: 16))
+        hLine.move(to: NSPoint(x: 6, y: 19))
+        hLine.line(to: NSPoint(x: 26, y: 19))
         hLine.lineWidth = 1.0
         hLine.stroke()
         
-        // Vertical line separating left and right buttons (x = 16, y from 16 to 30)
+        // Vertical line separating left and right buttons (x = 16, y from 19 to 31)
         let vLine = NSBezierPath()
-        vLine.move(to: NSPoint(x: 16, y: 16))
-        vLine.line(to: NSPoint(x: 16, y: 30))
+        vLine.move(to: NSPoint(x: 16, y: 19))
+        vLine.line(to: NSPoint(x: 16, y: 31))
         vLine.lineWidth = 1.0
         vLine.stroke()
         
-        // Scroll wheel (middle button) pill: centered at x = 16, y = 20-25
-        let wheelRect = NSRect(x: 14.5, y: 20, width: 3, height: 6)
+        // Scroll wheel (middle button) pill: centered at x = 16, y = 22-27
+        let wheelRect = NSRect(x: 14.5, y: 22, width: 3, height: 5)
         let wheelPath = NSBezierPath(roundedRect: wheelRect, xRadius: 1.5, yRadius: 1.5)
         
-        // Fill the clicked button:
-        if clickedButton == "Left" {
-            let leftButtonPath = NSBezierPath()
-            leftButtonPath.move(to: NSPoint(x: 16, y: 16))
-            leftButtonPath.line(to: NSPoint(x: 6, y: 16))
-            leftButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 20), radius: 10, startAngle: 180, endAngle: 90, clockwise: true)
-            leftButtonPath.line(to: NSPoint(x: 16, y: 16))
-            fillColor.setFill()
-            leftButtonPath.fill()
-        } else if clickedButton == "Right" {
-            let rightButtonPath = NSBezierPath()
-            rightButtonPath.move(to: NSPoint(x: 16, y: 16))
-            rightButtonPath.line(to: NSPoint(x: 26, y: 16))
-            rightButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 20), radius: 10, startAngle: 0, endAngle: 90, clockwise: false)
-            rightButtonPath.line(to: NSPoint(x: 16, y: 16))
-            fillColor.setFill()
-            rightButtonPath.fill()
-        } else if clickedButton == "Middle" {
-            fillColor.setFill()
-            wheelPath.fill()
+        // Fill the clicked button if pressed:
+        if isPressed {
+            if clickedButton == "Left" {
+                let leftButtonPath = NSBezierPath()
+                leftButtonPath.move(to: NSPoint(x: 16, y: 19))
+                leftButtonPath.line(to: NSPoint(x: 6, y: 19))
+                leftButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 21), radius: 10, startAngle: 180, endAngle: 90, clockwise: true)
+                leftButtonPath.line(to: NSPoint(x: 16, y: 19))
+                fillColor.setFill()
+                leftButtonPath.fill()
+            } else if clickedButton == "Right" {
+                let rightButtonPath = NSBezierPath()
+                rightButtonPath.move(to: NSPoint(x: 16, y: 19))
+                rightButtonPath.line(to: NSPoint(x: 26, y: 19))
+                rightButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 21), radius: 10, startAngle: 0, endAngle: 90, clockwise: false)
+                rightButtonPath.line(to: NSPoint(x: 16, y: 19))
+                fillColor.setFill()
+                rightButtonPath.fill()
+            } else if clickedButton == "Middle" {
+                fillColor.setFill()
+                wheelPath.fill()
+            }
         }
         
         // Draw wheel border:
         strokeColor.setStroke()
         wheelPath.lineWidth = 1.0
         wheelPath.stroke()
+        
+        // Draw double/triple click badge
+        if clickCount > 1 {
+            let badgeRadius: CGFloat = 6.0
+            let badgeCenter = NSPoint(x: 16, y: 6)
+            let badgeRect = NSRect(x: badgeCenter.x - badgeRadius, y: badgeCenter.y - badgeRadius, width: badgeRadius * 2, height: badgeRadius * 2)
+            let badgePath = NSBezierPath(ovalIn: badgeRect)
+            
+            strokeColor.setFill()
+            badgePath.fill()
+            
+            let badgeText = "\(clickCount)"
+            let font = NSFont.systemFont(ofSize: 9, weight: .bold)
+            let textColor = strokeColor.isDark ? NSColor.white : NSColor.black
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor
+            ]
+            let size = (badgeText as NSString).size(withAttributes: attributes)
+            let textRect = NSRect(x: badgeCenter.x - size.width / 2,
+                                  y: badgeCenter.y - size.height / 2 - 0.5,
+                                  width: size.width,
+                                  height: size.height)
+            (badgeText as NSString).draw(in: textRect, withAttributes: attributes)
+        }
     }
 }
 
@@ -189,10 +220,14 @@ private final class MouseGraphicView: NSView {
 private final class TrackpadGraphicView: NSView {
     private let clickedButton: String
     private let color: NSColor
+    private let isPressed: Bool
+    private let clickCount: Int
     
-    init(clickedButton: String, color: NSColor) {
+    init(clickedButton: String, color: NSColor, isPressed: Bool, clickCount: Int) {
         self.clickedButton = clickedButton
         self.color = color
+        self.isPressed = isPressed
+        self.clickCount = clickCount
         super.init(frame: NSRect(x: 0, y: 0, width: 44, height: 32))
     }
     
@@ -204,37 +239,109 @@ private final class TrackpadGraphicView: NSView {
         let strokeColor = color
         let fillColor = color.withAlphaComponent(0.85)
         
-        // Trackpad outline: centered in 44x32 -> x: 4, y: 4, w: 36, h: 24
-        let trackpadRect = NSRect(x: 4, y: 4, width: 36, height: 24)
+        // Trackpad outline: centered in 44x32 but shifted up slightly -> x: 4, y: 7
+        let trackpadRect = NSRect(x: 4, y: 7, width: 36, height: 22)
         let path = NSBezierPath(roundedRect: trackpadRect, xRadius: 4, yRadius: 4)
         
         strokeColor.setStroke()
         path.lineWidth = 1.5
         path.stroke()
         
-        // Touch point
-        let touchCenter: NSPoint
-        switch clickedButton {
-        case "Left":
-            touchCenter = NSPoint(x: 12, y: 10)
-        case "Right":
-            touchCenter = NSPoint(x: 32, y: 10)
-        default:
-            touchCenter = NSPoint(x: 22, y: 16)
+        if clickedButton.hasPrefix("Swipe") {
+            // Draw two-finger swipe/scroll gesture
+            let headSize: CGFloat = 3.0
+            if clickedButton == "SwipeUp" {
+                drawSwipeArrow(from: NSPoint(x: 18, y: 11), to: NSPoint(x: 18, y: 22), color: strokeColor, headSize: headSize)
+                drawSwipeArrow(from: NSPoint(x: 26, y: 11), to: NSPoint(x: 26, y: 22), color: strokeColor, headSize: headSize)
+            } else if clickedButton == "SwipeDown" {
+                drawSwipeArrow(from: NSPoint(x: 18, y: 22), to: NSPoint(x: 18, y: 11), color: strokeColor, headSize: headSize)
+                drawSwipeArrow(from: NSPoint(x: 26, y: 22), to: NSPoint(x: 26, y: 11), color: strokeColor, headSize: headSize)
+            } else if clickedButton == "SwipeLeft" {
+                drawSwipeArrow(from: NSPoint(x: 27, y: 18), to: NSPoint(x: 17, y: 18), color: strokeColor, headSize: headSize)
+                drawSwipeArrow(from: NSPoint(x: 27, y: 13), to: NSPoint(x: 17, y: 13), color: strokeColor, headSize: headSize)
+            } else if clickedButton == "SwipeRight" {
+                drawSwipeArrow(from: NSPoint(x: 17, y: 18), to: NSPoint(x: 27, y: 18), color: strokeColor, headSize: headSize)
+                drawSwipeArrow(from: NSPoint(x: 17, y: 13), to: NSPoint(x: 27, y: 13), color: strokeColor, headSize: headSize)
+            }
+        } else {
+            // Touch point for clicks
+            let touchCenter: NSPoint
+            switch clickedButton {
+            case "Left":
+                touchCenter = NSPoint(x: 14, y: 14)
+            case "Right":
+                touchCenter = NSPoint(x: 30, y: 14)
+            default:
+                touchCenter = NSPoint(x: 22, y: 18)
+            }
+            
+            let touchRadius: CGFloat = 4
+            let touchPath = NSBezierPath(ovalIn: NSRect(x: touchCenter.x - touchRadius,
+                                                        y: touchCenter.y - touchRadius,
+                                                        width: touchRadius * 2,
+                                                        height: touchRadius * 2))
+            
+            if isPressed {
+                fillColor.setFill()
+                touchPath.fill()
+            }
+            
+            strokeColor.setStroke()
+            touchPath.lineWidth = 1.0
+            touchPath.stroke()
         }
         
-        let touchRadius: CGFloat = 4
-        let touchPath = NSBezierPath(ovalIn: NSRect(x: touchCenter.x - touchRadius,
-                                                    y: touchCenter.y - touchRadius,
-                                                    width: touchRadius * 2,
-                                                    height: touchRadius * 2))
+        // Draw double/triple click badge
+        if clickCount > 1 && !clickedButton.hasPrefix("Swipe") {
+            let badgeRadius: CGFloat = 6.0
+            let badgeCenter = NSPoint(x: 22, y: 6)
+            let badgeRect = NSRect(x: badgeCenter.x - badgeRadius, y: badgeCenter.y - badgeRadius, width: badgeRadius * 2, height: badgeRadius * 2)
+            let badgePath = NSBezierPath(ovalIn: badgeRect)
+            
+            strokeColor.setFill()
+            badgePath.fill()
+            
+            let badgeText = "\(clickCount)"
+            let font = NSFont.systemFont(ofSize: 9, weight: .bold)
+            let textColor = strokeColor.isDark ? NSColor.white : NSColor.black
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: textColor
+            ]
+            let size = (badgeText as NSString).size(withAttributes: attributes)
+            let textRect = NSRect(x: badgeCenter.x - size.width / 2,
+                                  y: badgeCenter.y - size.height / 2 - 0.5,
+                                  width: size.width,
+                                  height: size.height)
+            (badgeText as NSString).draw(in: textRect, withAttributes: attributes)
+        }
+    }
+    
+    private func drawSwipeArrow(from start: NSPoint, to end: NSPoint, color: NSColor, headSize: CGFloat) {
+        // Draw starting dot
+        let dotRadius: CGFloat = 1.5
+        let dotRect = NSRect(x: start.x - dotRadius, y: start.y - dotRadius, width: dotRadius * 2, height: dotRadius * 2)
+        let dotPath = NSBezierPath(ovalIn: dotRect)
+        color.setFill()
+        dotPath.fill()
         
-        fillColor.setFill()
-        touchPath.fill()
+        // Draw line
+        let linePath = NSBezierPath()
+        linePath.move(to: start)
+        linePath.line(to: end)
+        color.setStroke()
+        linePath.lineWidth = 1.2
+        linePath.stroke()
         
-        strokeColor.setStroke()
-        touchPath.lineWidth = 1.0
-        touchPath.stroke()
+        // Draw arrow head
+        let angle = atan2(end.y - start.y, end.x - start.x)
+        let arrowPath = NSBezierPath()
+        arrowPath.move(to: end)
+        arrowPath.line(to: NSPoint(x: end.x - headSize * cos(angle - .pi / 6), y: end.y - headSize * sin(angle - .pi / 6)))
+        arrowPath.line(to: NSPoint(x: end.x - headSize * cos(angle + .pi / 6), y: end.y - headSize * sin(angle + .pi / 6)))
+        arrowPath.close()
+        color.setFill()
+        arrowPath.fill()
     }
 }
 
@@ -248,6 +355,22 @@ private final class KeycapView: NSView {
     
     private let bottomLayer = CALayer()
     private let topLayer = CALayer()
+
+    var isPressed: Bool = true {
+        didSet {
+            updateColors()
+        }
+    }
+
+    var clickCount: Int = 1 {
+        didSet {
+            updateColors()
+        }
+    }
+
+    var displayName: String {
+        return config.displayName
+    }
 
     init(config: KeyConfig) {
         self.config = config
@@ -383,12 +506,12 @@ private final class KeycapView: NSView {
             let w = config.width
             
             if isMouse {
-                let mouseView = MouseGraphicView(clickedButton: clickedButton, color: labelColor)
+                let mouseView = MouseGraphicView(clickedButton: clickedButton, color: labelColor, isPressed: isPressed, clickCount: clickCount)
                 mouseView.frame.origin = NSPoint(x: (w - 32) / 2, y: (45 - 32) / 2 + 3)
                 addSubview(mouseView)
                 graphicView = mouseView
             } else {
-                let trackpadView = TrackpadGraphicView(clickedButton: clickedButton, color: labelColor)
+                let trackpadView = TrackpadGraphicView(clickedButton: clickedButton, color: labelColor, isPressed: isPressed, clickCount: clickCount)
                 trackpadView.frame.origin = NSPoint(x: (w - 44) / 2, y: (45 - 32) / 2 + 3)
                 addSubview(trackpadView)
                 graphicView = trackpadView
@@ -437,7 +560,21 @@ private final class KeycapView: NSView {
 // MARK: - Pill View (Enclosing Container)
 
 private final class KeystrokePill: NSView {
+    var keycaps: [KeycapView] = []
+    let text: String
+
+    var isMouseButtonPill: Bool {
+        let clean = text.lowercased()
+        return (clean.contains("mouse\u{00a0}left") ||
+                clean.contains("mouse\u{00a0}right") ||
+                clean.contains("mouse\u{00a0}middle") ||
+                clean.contains("mouse\u{00a0}btn") ||
+                clean.contains("trackpad\u{00a0}left") ||
+                clean.contains("trackpad\u{00a0}right"))
+    }
+
     init(text: String) {
+        self.text = text
         let keys = text.components(separatedBy: " ").filter { !$0.isEmpty }
         let configs = keys.map { parseKey($0) }
         
@@ -481,6 +618,7 @@ private final class KeystrokePill: NSView {
             let keycap = KeycapView(config: config)
             keycap.frame.origin = NSPoint(x: currentX, y: vPad)
             addSubview(keycap)
+            keycaps.append(keycap)
             currentX += config.width + keyGap
         }
     }
@@ -559,7 +697,7 @@ private final class ModifierHUDView: NSView {
 
     required init?(coder: NSCoder) { fatalError() }
 
-    func updateState(flags: CGEventFlags, regularKeyText: String?) {
+    func updateState(flags: CGEventFlags, regularKeyText: String?, isPressed: Bool = true, clickCount: Int = 1) {
         let isFunctionKey = regularKeyText?.hasPrefix("F") == true &&
                             regularKeyText?.count ?? 0 > 1 &&
                             regularKeyText?.dropFirst().allSatisfy({ $0.isNumber }) == true
@@ -571,9 +709,13 @@ private final class ModifierHUDView: NSView {
         commandKey.alphaValue = flags.contains(.maskCommand) ? 1.0 : 0.2
 
         if let regularKeyText = regularKeyText, !regularKeyText.isEmpty {
+            regularKeySlot.isPressed = isPressed
+            regularKeySlot.clickCount = clickCount
             regularKeySlot.updateText(regularKeyText)
             regularKeySlot.alphaValue = 1.0
         } else {
+            regularKeySlot.isPressed = false
+            regularKeySlot.clickCount = 1
             regularKeySlot.updateText("")
             regularKeySlot.alphaValue = 0.2
         }
@@ -641,7 +783,7 @@ final class KeyDisplayWindow: NSWindow {
         pills.removeAll()
     }
 
-    func showKeystroke(_ text: String, flags: CGEventFlags = []) {
+    func showKeystroke(_ text: String, flags: CGEventFlags = [], isDown: Bool = true, clickCount: Int = 1) {
         let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
 
         if modifierKeysOnly {
@@ -688,7 +830,7 @@ final class KeyDisplayWindow: NSWindow {
                 activeHUDView = hud
             }
 
-            hud.updateState(flags: flags, regularKeyText: regularKeyText)
+            hud.updateState(flags: flags, regularKeyText: regularKeyText, isPressed: isDown, clickCount: clickCount)
             layoutPills(animated: !isNew)
 
             if hud.alphaValue == 0 {
@@ -698,43 +840,77 @@ final class KeyDisplayWindow: NSWindow {
                 }
             }
 
-            if !hasModifiers && !UserDefaults.standard.bool(forKey: "sticky") {
+            if !hasModifiers && !UserDefaults.standard.bool(forKey: "sticky") && !isDown {
                 startFadeOutTimer(for: hud)
             }
         } else {
             // Default stacking/fading behavior
             guard !text.isEmpty else { return }
 
-            // Evict oldest pill if at capacity
-            if pills.count >= Self.maxPills {
-                let evicted = pills.removeFirst()
-                evicted.removeFromSuperview()
-            }
-
-            let pill = KeystrokePill(text: text)
-            pill.alphaValue = 0
-            contentView?.addSubview(pill)
-            pills.append(pill)
-
-            layoutPills(animated: false)
-
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = 0.12
-                pill.animator().alphaValue = 1.0
-            }
-
-            let displayTime = Self.displayDuration
-            DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) { [weak self, weak pill] in
-                guard let self, let pill, self.pills.contains(where: { $0 === pill }) else { return }
-                NSAnimationContext.runAnimationGroup({ ctx in
-                    ctx.duration = 0.45
-                    pill.animator().alphaValue = 0
-                }) { [weak self, weak pill] in
-                    guard let self, let pill else { return }
-                    self.pills.removeAll { $0 === pill }
-                    pill.removeFromSuperview()
-                    self.layoutPills(animated: true)
+            if isDown {
+                // Evict oldest pill if at capacity
+                if pills.count >= Self.maxPills {
+                    let evicted = pills.removeFirst()
+                    evicted.removeFromSuperview()
                 }
+
+                let pill = KeystrokePill(text: text)
+                pill.alphaValue = 0
+                contentView?.addSubview(pill)
+                pills.append(pill)
+
+                if pill.isMouseButtonPill {
+                    for keycap in pill.keycaps {
+                        let isMouse = keycap.displayName.hasPrefix("Mouse\u{00A0}")
+                        let isTrackpad = keycap.displayName.hasPrefix("Trackpad\u{00A0}")
+                        if isMouse || isTrackpad {
+                            keycap.isPressed = true
+                            keycap.clickCount = clickCount
+                        }
+                    }
+                }
+
+                layoutPills(animated: false)
+
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.12
+                    pill.animator().alphaValue = 1.0
+                }
+
+                if !pill.isMouseButtonPill {
+                    startPillFadeOut(pill)
+                }
+            } else {
+                // isDown is false (release event)
+                if let pill = pills.reversed().first(where: {
+                    guard let p = $0 as? KeystrokePill else { return false }
+                    return p.isMouseButtonPill && p.text == text
+                }) as? KeystrokePill {
+                    for keycap in pill.keycaps {
+                        let isMouse = keycap.displayName.hasPrefix("Mouse\u{00A0}")
+                        let isTrackpad = keycap.displayName.hasPrefix("Trackpad\u{00A0}")
+                        if isMouse || isTrackpad {
+                            keycap.isPressed = false
+                        }
+                    }
+                    startPillFadeOut(pill)
+                }
+            }
+        }
+    }
+
+    private func startPillFadeOut(_ pill: NSView) {
+        let displayTime = Self.displayDuration
+        DispatchQueue.main.asyncAfter(deadline: .now() + displayTime) { [weak self, weak pill] in
+            guard let self, let pill, self.pills.contains(where: { $0 === pill }) else { return }
+            NSAnimationContext.runAnimationGroup({ ctx in
+                ctx.duration = 0.45
+                pill.animator().alphaValue = 0
+            }) { [weak self, weak pill] in
+                guard let self, let pill else { return }
+                self.pills.removeAll { $0 === pill }
+                pill.removeFromSuperview()
+                self.layoutPills(animated: true)
             }
         }
     }
