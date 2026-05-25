@@ -23,7 +23,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.register(defaults: [
-            "modifierKeysOnly": true
+            "modifierKeysOnly": true,
+            "showMouseClicks": true
         ])
 
         keyDisplayWindow  = KeyDisplayWindow()

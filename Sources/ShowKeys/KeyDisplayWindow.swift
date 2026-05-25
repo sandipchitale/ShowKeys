@@ -35,7 +35,20 @@ private func parseKey(_ rawKey: String) -> KeyConfig {
         return KeyConfig(isModifier: false, displayName: "⇪", symbol: nil, width: 72)
     default:
         let label = rawKey
-        return KeyConfig(isModifier: false, displayName: label, symbol: nil, width: 72)
+        let isMouse = label.hasPrefix("Mouse\u{00A0}")
+        let isTrackpad = label.hasPrefix("Trackpad\u{00A0}")
+        
+        let width: CGFloat
+        if isMouse || isTrackpad {
+            width = 72
+        } else {
+            let fontSize: CGFloat = label.count > 1 ? 12 : 18
+            let fontWeight: NSFont.Weight = label.count > 1 ? .medium : .bold
+            let font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
+            let size = (label as NSString).size(withAttributes: [.font: font])
+            width = max(72, size.width + 24)
+        }
+        return KeyConfig(isModifier: false, displayName: label, symbol: nil, width: width)
     }
 }
 
@@ -95,12 +108,143 @@ func colorKey(for displayName: String) -> String {
     }
 }
 
+// MARK: - Mouse Graphic View
+
+private final class MouseGraphicView: NSView {
+    private let clickedButton: String
+    private let color: NSColor
+    
+    init(clickedButton: String, color: NSColor) {
+        self.clickedButton = clickedButton
+        self.color = color
+        super.init(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+    }
+    
+    required init?(coder: NSCoder) { fatalError() }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        
+        let strokeColor = color
+        let fillColor = color.withAlphaComponent(0.85)
+        
+        // Mouse body bounds: 20x28, centered in 32x32 -> x: 6, y: 2
+        let mouseRect = NSRect(x: 6, y: 2, width: 20, height: 28)
+        let path = NSBezierPath(roundedRect: mouseRect, xRadius: 10, yRadius: 10)
+        
+        strokeColor.setStroke()
+        path.lineWidth = 1.5
+        path.stroke()
+        
+        // Draw division lines:
+        // Horizontal line separating top buttons from body (y = 16)
+        let hLine = NSBezierPath()
+        hLine.move(to: NSPoint(x: 6, y: 16))
+        hLine.line(to: NSPoint(x: 26, y: 16))
+        hLine.lineWidth = 1.0
+        hLine.stroke()
+        
+        // Vertical line separating left and right buttons (x = 16, y from 16 to 30)
+        let vLine = NSBezierPath()
+        vLine.move(to: NSPoint(x: 16, y: 16))
+        vLine.line(to: NSPoint(x: 16, y: 30))
+        vLine.lineWidth = 1.0
+        vLine.stroke()
+        
+        // Scroll wheel (middle button) pill: centered at x = 16, y = 20-25
+        let wheelRect = NSRect(x: 14.5, y: 20, width: 3, height: 6)
+        let wheelPath = NSBezierPath(roundedRect: wheelRect, xRadius: 1.5, yRadius: 1.5)
+        
+        // Fill the clicked button:
+        if clickedButton == "Left" {
+            let leftButtonPath = NSBezierPath()
+            leftButtonPath.move(to: NSPoint(x: 16, y: 16))
+            leftButtonPath.line(to: NSPoint(x: 6, y: 16))
+            leftButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 20), radius: 10, startAngle: 180, endAngle: 90, clockwise: true)
+            leftButtonPath.line(to: NSPoint(x: 16, y: 16))
+            fillColor.setFill()
+            leftButtonPath.fill()
+        } else if clickedButton == "Right" {
+            let rightButtonPath = NSBezierPath()
+            rightButtonPath.move(to: NSPoint(x: 16, y: 16))
+            rightButtonPath.line(to: NSPoint(x: 26, y: 16))
+            rightButtonPath.appendArc(withCenter: NSPoint(x: 16, y: 20), radius: 10, startAngle: 0, endAngle: 90, clockwise: false)
+            rightButtonPath.line(to: NSPoint(x: 16, y: 16))
+            fillColor.setFill()
+            rightButtonPath.fill()
+        } else if clickedButton == "Middle" {
+            fillColor.setFill()
+            wheelPath.fill()
+        }
+        
+        // Draw wheel border:
+        strokeColor.setStroke()
+        wheelPath.lineWidth = 1.0
+        wheelPath.stroke()
+    }
+}
+
+// MARK: - Trackpad Graphic View
+
+private final class TrackpadGraphicView: NSView {
+    private let clickedButton: String
+    private let color: NSColor
+    
+    init(clickedButton: String, color: NSColor) {
+        self.clickedButton = clickedButton
+        self.color = color
+        super.init(frame: NSRect(x: 0, y: 0, width: 44, height: 32))
+    }
+    
+    required init?(coder: NSCoder) { fatalError() }
+    
+    override func draw(_ dirtyRect: NSRect) {
+        super.draw(dirtyRect)
+        
+        let strokeColor = color
+        let fillColor = color.withAlphaComponent(0.85)
+        
+        // Trackpad outline: centered in 44x32 -> x: 4, y: 4, w: 36, h: 24
+        let trackpadRect = NSRect(x: 4, y: 4, width: 36, height: 24)
+        let path = NSBezierPath(roundedRect: trackpadRect, xRadius: 4, yRadius: 4)
+        
+        strokeColor.setStroke()
+        path.lineWidth = 1.5
+        path.stroke()
+        
+        // Touch point
+        let touchCenter: NSPoint
+        switch clickedButton {
+        case "Left":
+            touchCenter = NSPoint(x: 12, y: 10)
+        case "Right":
+            touchCenter = NSPoint(x: 32, y: 10)
+        default:
+            touchCenter = NSPoint(x: 22, y: 16)
+        }
+        
+        let touchRadius: CGFloat = 4
+        let touchPath = NSBezierPath(ovalIn: NSRect(x: touchCenter.x - touchRadius,
+                                                    y: touchCenter.y - touchRadius,
+                                                    width: touchRadius * 2,
+                                                    height: touchRadius * 2))
+        
+        fillColor.setFill()
+        touchPath.fill()
+        
+        strokeColor.setStroke()
+        touchPath.lineWidth = 1.0
+        touchPath.stroke()
+    }
+}
+
 // MARK: - 3D Keycap View
 
 private final class KeycapView: NSView {
     private var config: KeyConfig
     private var nameLabel: NSTextField?
     private var symbolLabel: NSTextField?
+    private var graphicView: NSView?
     
     private let bottomLayer = CALayer()
     private let topLayer = CALayer()
@@ -124,7 +268,12 @@ private final class KeycapView: NSView {
         layer?.addSublayer(bottomLayer)
         layer?.addSublayer(topLayer)
         
-        if config.isModifier {
+        let isMouse = config.displayName.hasPrefix("Mouse\u{00A0}")
+        let isTrackpad = config.displayName.hasPrefix("Trackpad\u{00A0}")
+        
+        if isMouse || isTrackpad {
+            // Graphic will be dynamically added/updated in updateColors()
+        } else if config.isModifier {
             if let symbol = config.symbol {
                 let symbolLabel = NSTextField(labelWithString: symbol)
                 symbolLabel.font = NSFont.systemFont(ofSize: 15, weight: .regular)
@@ -222,19 +371,66 @@ private final class KeycapView: NSView {
         
         nameLabel?.textColor = labelColor
         symbolLabel?.textColor = labelColor
+        
+        // Render graphics if mouse or trackpad
+        let isMouse = config.displayName.hasPrefix("Mouse\u{00A0}")
+        let isTrackpad = config.displayName.hasPrefix("Trackpad\u{00A0}")
+        
+        if isMouse || isTrackpad {
+            graphicView?.removeFromSuperview()
+            
+            let clickedButton = config.displayName.components(separatedBy: "\u{00A0}").last ?? "Left"
+            let w = config.width
+            
+            if isMouse {
+                let mouseView = MouseGraphicView(clickedButton: clickedButton, color: labelColor)
+                mouseView.frame.origin = NSPoint(x: (w - 32) / 2, y: (45 - 32) / 2 + 3)
+                addSubview(mouseView)
+                graphicView = mouseView
+            } else {
+                let trackpadView = TrackpadGraphicView(clickedButton: clickedButton, color: labelColor)
+                trackpadView.frame.origin = NSPoint(x: (w - 44) / 2, y: (45 - 32) / 2 + 3)
+                addSubview(trackpadView)
+                graphicView = trackpadView
+            }
+        } else {
+            graphicView?.removeFromSuperview()
+            graphicView = nil
+        }
     }
 
     func updateText(_ text: String) {
-        guard let nameLabel = nameLabel else { return }
-        nameLabel.stringValue = text
+        config = KeyConfig(isModifier: config.isModifier, displayName: text, symbol: config.symbol, width: config.width)
         
-        let fontSize: CGFloat = text.count > 1 ? 12 : 18
-        let fontWeight: NSFont.Weight = text.count > 1 ? .medium : .bold
-        nameLabel.font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
+        let isMouse = text.hasPrefix("Mouse\u{00A0}")
+        let isTrackpad = text.hasPrefix("Trackpad\u{00A0}")
         
-        let size = (text as NSString).size(withAttributes: [.font: nameLabel.font!])
-        let labelY = (45 - size.height) / 2 + 3
-        nameLabel.frame = NSRect(x: 0, y: labelY - 0.5, width: bounds.width, height: size.height)
+        if isMouse || isTrackpad {
+            nameLabel?.isHidden = true
+        } else {
+            if nameLabel == nil {
+                let nameLabel = NSTextField(labelWithString: text)
+                nameLabel.drawsBackground = false
+                nameLabel.isBezeled = false
+                nameLabel.alignment = .center
+                addSubview(nameLabel)
+                self.nameLabel = nameLabel
+            }
+            nameLabel?.isHidden = false
+            
+            if let nameLabel = nameLabel {
+                nameLabel.stringValue = text
+                let fontSize: CGFloat = text.count > 1 ? 12 : 18
+                let fontWeight: NSFont.Weight = text.count > 1 ? .medium : .bold
+                nameLabel.font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
+                
+                let size = (text as NSString).size(withAttributes: [.font: nameLabel.font!])
+                let labelY = (45 - size.height) / 2 + 3
+                nameLabel.frame = NSRect(x: 0, y: labelY - 0.5, width: bounds.width, height: size.height)
+            }
+        }
+        
+        updateColors()
     }
 }
 

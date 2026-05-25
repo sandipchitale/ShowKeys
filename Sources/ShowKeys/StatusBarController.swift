@@ -154,6 +154,14 @@ final class StatusBarController: NSObject {
         stickyItem.target = self
         menu.addItem(stickyItem)
 
+        let mouseClicksItem = NSMenuItem(
+            title: "Show Mouse Clicks",
+            action: #selector(toggleShowMouseClicks(_:)),
+            keyEquivalent: ""
+        )
+        mouseClicksItem.target = self
+        menu.addItem(mouseClicksItem)
+
         // let testItem = NSMenuItem(title: "Test Display", action: #selector(testDisplay(_:)), keyEquivalent: "")
         // testItem.target = self
         // menu.addItem(testItem)
@@ -187,6 +195,12 @@ final class StatusBarController: NSObject {
     @objc private func toggleSticky(_ sender: NSMenuItem) {
         let new = !UserDefaults.standard.bool(forKey: "sticky")
         UserDefaults.standard.set(new, forKey: "sticky")
+        displayWindow?.clearKeystrokes()
+    }
+
+    @objc private func toggleShowMouseClicks(_ sender: NSMenuItem) {
+        let new = !UserDefaults.standard.bool(forKey: "showMouseClicks")
+        UserDefaults.standard.set(new, forKey: "showMouseClicks")
         displayWindow?.clearKeystrokes()
     }
 
@@ -302,6 +316,11 @@ extension StatusBarController: NSMenuDelegate {
             let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
             stickyItem.isEnabled = modifierKeysOnly
             stickyItem.state = UserDefaults.standard.bool(forKey: "sticky") ? .on : .off
+        }
+
+        // Refresh show mouse clicks checkmark
+        if let mouseClicksItem = menu.item(withTitle: "Show Mouse Clicks") {
+            mouseClicksItem.state = UserDefaults.standard.bool(forKey: "showMouseClicks") ? .on : .off
         }
 
         // Refresh colors checkmarks

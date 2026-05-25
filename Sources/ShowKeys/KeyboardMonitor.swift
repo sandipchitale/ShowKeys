@@ -29,7 +29,10 @@ class KeyboardMonitor {
 
         let mask: CGEventMask =
             (1 << CGEventType.keyDown.rawValue) |
-            (1 << CGEventType.flagsChanged.rawValue)
+            (1 << CGEventType.flagsChanged.rawValue) |
+            (1 << CGEventType.leftMouseDown.rawValue) |
+            (1 << CGEventType.rightMouseDown.rawValue) |
+            (1 << CGEventType.otherMouseDown.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
@@ -78,12 +81,63 @@ class KeyboardMonitor {
             guard !text.isEmpty else { return }
         case .flagsChanged:
             text = buildFlagsChangedText(event: event)
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+            guard UserDefaults.standard.bool(forKey: "showMouseClicks") else { return }
+            text = buildMouseDownText(type: type, event: event)
+            guard !text.isEmpty else { return }
         default:
             return
         }
         DispatchQueue.main.async { [weak self] in
             self?.onKeyEvent?(text, flags)
         }
+    }
+
+    private func buildMouseDownText(type: CGEventType, event: CGEvent) -> String {
+        let flags = event.flags
+        let hasModifier = flags.contains(.maskControl)  ||
+                          flags.contains(.maskAlternate) ||
+                          flags.contains(.maskShift)    ||
+                          flags.contains(.maskCommand)  ||
+                          flags.contains(.maskSecondaryFn)
+
+        if UserDefaults.standard.bool(forKey: Self.modifierKeysOnlyKey) && !hasModifier {
+            return ""
+        }
+
+        var parts: [String] = []
+        if flags.contains(.maskControl)  { parts.append("⌃") }
+        if flags.contains(.maskSecondaryFn) { parts.append("🌐") }
+        if flags.contains(.maskAlternate){ parts.append("⌥") }
+        if flags.contains(.maskShift)    { parts.append("⇧") }
+        if flags.contains(.maskCommand)  { parts.append("⌘") }
+
+        var deviceName = "Mouse"
+        if let nsEvent = NSEvent(cgEvent: event) {
+            if nsEvent.subtype == .touch {
+                deviceName = "Trackpad"
+            }
+        }
+
+        let buttonName: String
+        switch type {
+        case .leftMouseDown:
+            buttonName = "Left"
+        case .rightMouseDown:
+            buttonName = "Right"
+        case .otherMouseDown:
+            let buttonNumber = event.getIntegerValueField(.mouseEventButtonNumber)
+            if buttonNumber == 2 {
+                buttonName = "Middle"
+            } else {
+                buttonName = "Btn\(buttonNumber)"
+            }
+        default:
+            buttonName = "Click"
+        }
+
+        parts.append("\(deviceName)\u{00A0}\(buttonName)")
+        return parts.joined(separator: " ")
     }
 
     // MARK: - Key text builders
