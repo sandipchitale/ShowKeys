@@ -41,42 +41,93 @@ private func parseKey(_ rawKey: String) -> KeyConfig {
 
 // MARK: - 3D Keycap View
 
+// MARK: - Color Tinting Helpers
+
+extension NSColor {
+    var isDark: Bool {
+        guard let rgbColor = self.usingColorSpace(.sRGB) else { return true }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgbColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b
+        return luminance < 0.5
+    }
+    
+    func darkened(by factor: CGFloat) -> NSColor {
+        guard let rgbColor = self.usingColorSpace(.sRGB) else { return self }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgbColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return NSColor(red: max(r * factor, 0),
+                       green: max(g * factor, 0),
+                       blue: max(b * factor, 0),
+                       alpha: a)
+    }
+
+    func toHex() -> String {
+        guard let rgbColor = self.usingColorSpace(.sRGB) else { return "" }
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        rgbColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02X%02X%02X", Int(r * 255), Int(g * 255), Int(b * 255))
+    }
+    
+    static func fromHex(_ hex: String) -> NSColor? {
+        var cleanHex = hex.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+        if cleanHex.hasPrefix("#") {
+            cleanHex.remove(at: cleanHex.startIndex)
+        }
+        guard cleanHex.count == 6 else { return nil }
+        var rgbValue: UInt64 = 0
+        Scanner(string: cleanHex).scanHexInt64(&rgbValue)
+        let r = CGFloat((rgbValue & 0xFF0000) >> 16) / 255.0
+        let g = CGFloat((rgbValue & 0x00FF00) >> 8) / 255.0
+        let b = CGFloat(rgbValue & 0x0000FF) / 255.0
+        return NSColor(red: r, green: g, blue: b, alpha: 1.0)
+    }
+}
+
+func colorKey(for displayName: String) -> String {
+    switch displayName.lowercased() {
+    case "control": return "color_control"
+    case "fn": return "color_fn"
+    case "option": return "color_option"
+    case "shift": return "color_shift"
+    case "command": return "color_command"
+    default: return "color_other"
+    }
+}
+
+// MARK: - 3D Keycap View
+
 private final class KeycapView: NSView {
+    private var config: KeyConfig
     private var nameLabel: NSTextField?
+    private var symbolLabel: NSTextField?
+    
+    private let bottomLayer = CALayer()
+    private let topLayer = CALayer()
 
     init(config: KeyConfig) {
+        self.config = config
+        super.init(frame: .zero)
+        
         let keyH: CGFloat = 48
         let w = config.width
-        super.init(frame: NSRect(x: 0, y: 0, width: w, height: keyH))
+        self.frame = NSRect(x: 0, y: 0, width: w, height: keyH)
         
         wantsLayer = true
         
-        // 1. Bottom shadow/3D edge layer
-        let bottomLayer = CALayer()
         bottomLayer.frame = CGRect(x: 0, y: 0, width: w, height: 45)
         bottomLayer.cornerRadius = 6
         
-        // 2. Top face layer
-        let topLayer = CALayer()
         topLayer.frame = CGRect(x: 0, y: 3, width: w, height: 45)
         topLayer.cornerRadius = 6
         
+        layer?.addSublayer(bottomLayer)
+        layer?.addSublayer(topLayer)
+        
         if config.isModifier {
-            // Dark keycap (modifier keys)
-            bottomLayer.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 1.0).cgColor
-            topLayer.backgroundColor = NSColor(calibratedWhite: 0.18, alpha: 1.0).cgColor
-            
-            topLayer.borderWidth = 0.5
-            topLayer.borderColor = NSColor(calibratedWhite: 0.25, alpha: 1.0).cgColor
-            
-            layer?.addSublayer(bottomLayer)
-            layer?.addSublayer(topLayer)
-            
-            // Symbol in top-right
             if let symbol = config.symbol {
                 let symbolLabel = NSTextField(labelWithString: symbol)
                 symbolLabel.font = NSFont.systemFont(ofSize: 15, weight: .regular)
-                symbolLabel.textColor = NSColor(calibratedWhite: 0.9, alpha: 1.0)
                 symbolLabel.drawsBackground = false
                 symbolLabel.isBezeled = false
                 symbolLabel.alignment = .right
@@ -86,35 +137,22 @@ private final class KeycapView: NSView {
                     symbolLabel.frame = NSRect(x: w - 24, y: 26, width: 18, height: 18)
                 }
                 addSubview(symbolLabel)
+                self.symbolLabel = symbolLabel
             }
             
-            // Display name in bottom-left
             let nameLabel = NSTextField(labelWithString: config.displayName)
             nameLabel.font = NSFont.systemFont(ofSize: 10, weight: .regular)
-            nameLabel.textColor = NSColor(calibratedWhite: 0.8, alpha: 1.0)
             nameLabel.drawsBackground = false
             nameLabel.isBezeled = false
             nameLabel.alignment = .left
             nameLabel.frame = NSRect(x: 6, y: 7, width: w - 12, height: 14)
             addSubview(nameLabel)
-            
+            self.nameLabel = nameLabel
         } else {
-            // Light keycap (regular keys)
-            bottomLayer.backgroundColor = NSColor(calibratedWhite: 0.65, alpha: 1.0).cgColor
-            topLayer.backgroundColor = NSColor(calibratedWhite: 0.94, alpha: 1.0).cgColor
-            
-            topLayer.borderWidth = 0.5
-            topLayer.borderColor = NSColor(calibratedWhite: 1.0, alpha: 1.0).cgColor
-            
-            layer?.addSublayer(bottomLayer)
-            layer?.addSublayer(topLayer)
-            
-            // Centered label
             let nameLabel = NSTextField(labelWithString: config.displayName)
             let fontSize: CGFloat = config.displayName.count > 1 ? 12 : 18
             let fontWeight: NSFont.Weight = config.displayName.count > 1 ? .medium : .bold
             nameLabel.font = NSFont.systemFont(ofSize: fontSize, weight: fontWeight)
-            nameLabel.textColor = NSColor(calibratedWhite: 0.15, alpha: 1.0)
             nameLabel.drawsBackground = false
             nameLabel.isBezeled = false
             nameLabel.alignment = .center
@@ -125,9 +163,66 @@ private final class KeycapView: NSView {
             addSubview(nameLabel)
             self.nameLabel = nameLabel
         }
+        
+        updateColors()
+        
+        NotificationCenter.default.addObserver(self, selector: #selector(colorChanged), name: Notification.Name("KeycapColorChanged"), object: nil)
     }
     
     required init?(coder: NSCoder) { fatalError() }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
+    @objc private func colorChanged() {
+        updateColors()
+    }
+    
+    private func updateColors() {
+        var customColor: NSColor? = nil
+        let defaultsKey = colorKey(for: config.displayName)
+        if let hex = UserDefaults.standard.string(forKey: defaultsKey),
+           let color = NSColor.fromHex(hex) {
+            customColor = color
+        }
+        
+        let faceColor: CGColor
+        let edgeColor: CGColor
+        let labelColor: NSColor
+        
+        if let color = customColor {
+            let isDark = color.isDark
+            faceColor = color.cgColor
+            edgeColor = color.darkened(by: 0.65).cgColor
+            labelColor = isDark ? NSColor(calibratedWhite: 0.9, alpha: 1.0) : NSColor(calibratedWhite: 0.15, alpha: 1.0)
+            
+            topLayer.borderWidth = 0.5
+            topLayer.borderColor = isDark ? NSColor(calibratedWhite: 0.25, alpha: 1.0).cgColor : NSColor(calibratedWhite: 1.0, alpha: 0.5).cgColor
+        } else {
+            if config.isModifier {
+                faceColor = NSColor(calibratedWhite: 0.18, alpha: 1.0).cgColor
+                edgeColor = NSColor(calibratedWhite: 0.08, alpha: 1.0).cgColor
+                labelColor = NSColor(calibratedWhite: 0.85, alpha: 1.0)
+                
+                topLayer.borderWidth = 0.5
+                topLayer.borderColor = NSColor(calibratedWhite: 0.25, alpha: 1.0).cgColor
+            } else {
+                faceColor = NSColor(calibratedWhite: 0.94, alpha: 1.0).cgColor
+                edgeColor = NSColor(calibratedWhite: 0.65, alpha: 1.0).cgColor
+                labelColor = NSColor(calibratedWhite: 0.15, alpha: 1.0)
+                
+                topLayer.borderWidth = 0.5
+                topLayer.borderColor = NSColor(calibratedWhite: 1.0, alpha: 1.0).cgColor
+            }
+        }
+        
+        bottomLayer.backgroundColor = edgeColor
+        topLayer.backgroundColor = faceColor
+        
+        nameLabel?.textColor = labelColor
+        symbolLabel?.textColor = labelColor
+    }
 
     func updateText(_ text: String) {
         guard let nameLabel = nameLabel else { return }

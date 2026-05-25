@@ -1,8 +1,21 @@
 import Cocoa
 
+class ColorMenuInfo: NSObject {
+    let keyDisplayName: String
+    let hexValue: String?
+    let isCustom: Bool
+    
+    init(keyDisplayName: String, hexValue: String?, isCustom: Bool = false) {
+        self.keyDisplayName = keyDisplayName
+        self.hexValue = hexValue
+        self.isCustom = isCustom
+    }
+}
+
 final class StatusBarController: NSObject {
     private var statusItem: NSStatusItem!
     private weak var displayWindow: KeyDisplayWindow?
+    private var activeCustomColorKey: String? = nil
 
     init(displayWindow: KeyDisplayWindow) {
         self.displayWindow = displayWindow
@@ -58,6 +71,72 @@ final class StatusBarController: NSObject {
         }
         cornerItem.submenu = cornerMenu
         menu.addItem(cornerItem)
+
+        // Colors sub-menu
+        let colorsItem = NSMenuItem(title: "Colors", action: nil, keyEquivalent: "")
+        let colorsMenu = NSMenu()
+        
+        let keysToConfigure = [
+            ("Shift Key", "shift"),
+            ("Control Key", "control"),
+            ("Fn (Globe) Key", "fn"),
+            ("Option Key", "option"),
+            ("Command Key", "command"),
+            ("Other Keys", "other")
+        ]
+        
+        for (label, keyName) in keysToConfigure {
+            let keyItem = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+            let keySubmenu = NSMenu()
+            
+            let colorChoices = [
+                ("Default", nil),
+                ("Red", "#FF3B30"),
+                ("Green", "#34C759"),
+                ("Blue", "#007AFF"),
+                ("Yellow", "#FFCC00"),
+                ("Orange", "#FF9500"),
+                ("Purple", "#AF52DE")
+            ]
+            
+            for (colorLabel, hex) in colorChoices {
+                let item = NSMenuItem(
+                    title: colorLabel,
+                    action: #selector(selectColor(_:)),
+                    keyEquivalent: ""
+                )
+                item.target = self
+                item.representedObject = ColorMenuInfo(keyDisplayName: keyName, hexValue: hex)
+                keySubmenu.addItem(item)
+            }
+            
+            keySubmenu.addItem(.separator())
+            
+            let customItem = NSMenuItem(
+                title: "Custom...",
+                action: #selector(selectCustomColor(_:)),
+                keyEquivalent: ""
+            )
+            customItem.target = self
+            customItem.representedObject = ColorMenuInfo(keyDisplayName: keyName, hexValue: nil, isCustom: true)
+            keySubmenu.addItem(customItem)
+            
+            keyItem.submenu = keySubmenu
+            colorsMenu.addItem(keyItem)
+        }
+        
+        colorsMenu.addItem(.separator())
+        
+        let resetAllItem = NSMenuItem(
+            title: "Default All",
+            action: #selector(resetAllColors(_:)),
+            keyEquivalent: ""
+        )
+        resetAllItem.target = self
+        colorsMenu.addItem(resetAllItem)
+        
+        colorsItem.submenu = colorsMenu
+        menu.addItem(colorsItem)
 
         let filterItem = NSMenuItem(
             title: "With Modifier Keys",
@@ -129,6 +208,52 @@ final class StatusBarController: NSObject {
         }
         return true
     }
+
+    @objc private func selectColor(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? ColorMenuInfo else { return }
+        let defaultsKey = colorKey(for: info.keyDisplayName)
+        if let hex = info.hexValue {
+            UserDefaults.standard.set(hex, forKey: defaultsKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: defaultsKey)
+        }
+        NotificationCenter.default.post(name: Notification.Name("KeycapColorChanged"), object: nil)
+    }
+
+    @objc private func selectCustomColor(_ sender: NSMenuItem) {
+        guard let info = sender.representedObject as? ColorMenuInfo else { return }
+        activeCustomColorKey = colorKey(for: info.keyDisplayName)
+        
+        let colorPanel = NSColorPanel.shared
+        colorPanel.setTarget(self)
+        colorPanel.setAction(#selector(colorPanelChanged(_:)))
+        
+        let currentHex = UserDefaults.standard.string(forKey: activeCustomColorKey!)
+        if let hex = currentHex, let currentColor = NSColor.fromHex(hex) {
+            colorPanel.color = currentColor
+        } else {
+            colorPanel.color = .white
+        }
+        
+        colorPanel.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    @objc private func colorPanelChanged(_ sender: NSColorPanel) {
+        guard let defaultsKey = activeCustomColorKey else { return }
+        let selectedColor = sender.color
+        let hex = selectedColor.toHex()
+        UserDefaults.standard.set(hex, forKey: defaultsKey)
+        NotificationCenter.default.post(name: Notification.Name("KeycapColorChanged"), object: nil)
+    }
+
+    @objc private func resetAllColors(_ sender: NSMenuItem) {
+        let keys = ["color_control", "color_fn", "color_option", "color_shift", "color_command", "color_other"]
+        for key in keys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        NotificationCenter.default.post(name: Notification.Name("KeycapColorChanged"), object: nil)
+    }
 }
 
 // MARK: - NSMenuDelegate — refresh checkmarks when menu opens
@@ -177,6 +302,31 @@ extension StatusBarController: NSMenuDelegate {
             let modifierKeysOnly = UserDefaults.standard.bool(forKey: "modifierKeysOnly")
             stickyItem.isEnabled = modifierKeysOnly
             stickyItem.state = UserDefaults.standard.bool(forKey: "sticky") ? .on : .off
+        }
+
+        // Refresh colors checkmarks
+        if let colorsMenu = menu.item(withTitle: "Colors")?.submenu {
+            for keyItem in colorsMenu.items {
+                guard let keySubmenu = keyItem.submenu,
+                      let firstItem = keySubmenu.items.first,
+                      let info = firstItem.representedObject as? ColorMenuInfo else { continue }
+                
+                let defaultsKey = colorKey(for: info.keyDisplayName)
+                let currentHex = UserDefaults.standard.string(forKey: defaultsKey)
+                
+                for item in keySubmenu.items {
+                    if item.isSeparatorItem { continue }
+                    guard let itemInfo = item.representedObject as? ColorMenuInfo else { continue }
+                    
+                    if itemInfo.isCustom {
+                        let hasCustom = currentHex != nil && !["#FF3B30", "#34C759", "#007AFF", "#FFCC00", "#FF9500", "#AF52DE"].contains(currentHex!)
+                        item.state = hasCustom ? .on : .off
+                    } else {
+                        let selected = (currentHex == itemInfo.hexValue)
+                        item.state = selected ? .on : .off
+                    }
+                }
+            }
         }
     }
 }
